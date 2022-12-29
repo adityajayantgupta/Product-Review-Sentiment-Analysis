@@ -1,14 +1,6 @@
-
-# import module
 import requests
-import re
-import sys
 from bs4 import BeautifulSoup
-# from happytransformer import HappyTextClassification
 
-
-#happy_tc = HappyTextClassification(model_type="DISTILBERT", model_name="distilbert-base-uncased-finetuned-sst-2-english", num_labels=2)
-  
 HEADERS = ({'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
             AppleWebKit/537.36 (KHTML, like Gecko) \
@@ -34,12 +26,10 @@ def cus_data(soup):
       review = sub_row[1].find_all('div')[2].text
       print(f"review:{review} \n\n")
 
-if __name__ == "__main__":
-  url = sys.argv[1]
-  print(url)
+def flipkart_scrapper(url):
   soup = get_soup(url)
   reviews = cus_data(soup)
-  print(reviews)
+  return reviews
 
 
   
