@@ -1,5 +1,5 @@
 from scrapers.sc_amzn import get_amz_product_data, extract_reviews
-from scrapers.sc_flpkrt import flipkart_scrapper
+from scrapers.sc_flpkrt import get_flp_product_data, extract_flp_reviews
 from flask import Flask, request, render_template, jsonify
 from happytransformer import HappyTextClassification
 from keybert import KeyBERT
@@ -27,12 +27,12 @@ def get_analysis(url_amz=None, url_flp=None):
 
   reviews = []
   if url_amz and url_flp:
-    reviews = extract_reviews(url_amz,2)
-    reviews.append(flipkart_scrapper(url_flp))
+    reviews = extract_reviews(url_amz,1)
+    reviews.extend(extract_flp_reviews(url_flp, 1))
   elif url_amz:
     reviews = extract_reviews(url_amz,1)
   elif url_flp:
-    reviews = flipkart_scrapper(url_flp)
+    reviews = extract_flp_reviews(url_flp, 1)
   
   score = []
   keywords = []
@@ -45,14 +45,12 @@ def get_analysis(url_amz=None, url_flp=None):
   return {"keywords":keywords, "scores": score, "summaries": summaries}
 
 def get_product_data(url_amz=None, url_flp=None):
-  productData = []
+  productData = {}
   if url_amz and url_flp:
-    productData = get_amz_product_data(url_amz)
-    productData.append(flipkart_scrapper(url_flp))
+    productData["amazon"] = get_amz_product_data(url_amz)
+    productData["flipkart"] = get_flp_product_data(url_flp)
   elif url_amz:
-    productData = get_amz_product_data(url_amz)
-  elif url_flp:
-    productData = flipkart_scrapper(url_flp)
+    productData["amazon"] = get_amz_product_data(url_amz)
   return productData
 
 app = Flask(__name__, template_folder="templates/build", static_folder="templates/build/static")

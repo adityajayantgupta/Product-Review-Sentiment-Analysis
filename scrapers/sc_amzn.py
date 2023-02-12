@@ -36,12 +36,6 @@ def get_title(soup):
 		# Title as a string value
 		title_string = title_value.strip()
 
-		# # Printing types of values for efficient understanding
-		# print(type(title))
-		# print(type(title_value))
-		# print(type(title_string))
-		# print()
-
 	except AttributeError:
 		title_string = ""	
 
@@ -49,14 +43,8 @@ def get_title(soup):
 
 # Function to extract Product Price
 def get_price(soup):
-    try:
-        price = soup.find("span", attrs={'class':'a-price-whole'}).string.strip()
-        print(price)
-
-    except AttributeError:
-        price = ""	
-
-    print("price", price)
+    price = soup.find("span", attrs={'class':'a-price-whole'}).text
+    print(price)
     return price
 
 # Function to extract Product Rating

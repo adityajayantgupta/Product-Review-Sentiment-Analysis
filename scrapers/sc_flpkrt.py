@@ -6,30 +6,46 @@ HEADERS = ({'User-Agent':
             AppleWebKit/537.36 (KHTML, like Gecko) \
             Chrome/90.0.4430.212 Safari/537.36',
             'Accept-Language': 'en-US, en;q=0.5'})
-  
-  
-def get_soup(url):  
-    # pass the url
-    # into getdata function
-    htmldata = requests.get(url, headers=HEADERS)
-    soup = BeautifulSoup(htmldata.text, 'html.parser')
-      
-    # display html code
-    return (soup)
 
-def cus_data(soup):
+def get_multipage_reviews(url, pages=1):  
+    url = url.split("/")
+    url[4] = "product-reviews"
+    url = "/".join(url)
+
+    multiPageData = []
+
+    for i in range(1,pages+1):    
+        response = requests.get(url + '&page=' + str(i), headers=HEADERS)
+        soup = BeautifulSoup(response.text, "html.parser")
+        multiPageData.append(soup)
+    
+    return multiPageData
+
+def review_scrapper(soup):
   rows = soup.find_all('div',attrs={'class':'col _2wzgFH K0kLPL'})
-  print(f"Number of reviews:{len(rows)}\n\n\n")
+  reviews = []
   for row in rows:
-      sub_row = row.find_all('div',attrs={'class':'row'})
-      
+      sub_row = row.find_all('div',attrs={'class':'row'})      
       review = sub_row[1].find_all('div')[2].text
-      print(f"review:{review} \n\n")
-
-def flipkart_scrapper(url):
-  soup = get_soup(url)
-  reviews = cus_data(soup)
+      reviews.append(review)
   return reviews
 
+def extract_flp_reviews(url, pages=1):
+  multiPageData = get_multipage_reviews(url,pages)
+  reviews = []
+  for page in multiPageData:
+      reviews.extend(review_scrapper(page))
+  return reviews
 
+def get_flp_product_data(url):
+  response = requests.get(url, headers=HEADERS)
+  soup = BeautifulSoup(response.text, 'html.parser')
+  rating=soup.find('div', attrs={'class':'_3LWZlK'})
+  price=soup.find('div', attrs={'class':'_30jeq3 _16Jk6d'})
+  imageURL = soup.find('img', attrs={'class': "_396cs4 _2amPTt _3qGmMb"})
+  title = soup.find('span', attrs={'class': "B_NuCI"})
+  print(rating.text,price.text)
+  return {"rating": rating.text, "price": price.text, "productURL": url, "imageURL": imageURL.get('src'), "title": title}
+    
   
+
