@@ -23,68 +23,38 @@ def get_multipage_reviews(url, pages=1):
     
     return multiPageData
 
-# Function to extract Product Title
-def get_title(soup):
-	
-	try:
-		# Outer Tag Object
-		title = soup.find("span", attrs={"id":'productTitle'})
-
-		# Inner NavigableString Object
-		title_value = title.string
-
-		# Title as a string value
-		title_string = title_value.strip()
-
-	except AttributeError:
-		title_string = ""	
-
-	return title_string
-
-# Function to extract Product Price
-def get_price(soup):
-    price = soup.find("span", attrs={'class':'a-price-whole'}).text
-    print(price)
-    return price
-
-# Function to extract Product Rating
-def get_rating(soup):
-
-	try:
-		rating = soup.find("i", attrs={'class':'a-icon a-icon-star a-star-4-5'}).string.strip()
-		
-	except AttributeError:
-		
-		try:
-			rating = soup.find("span", attrs={'class':'a-icon-alt'}).string.strip()
-		except:
-			rating = ""	
-
-	return rating
-
-def get_image_url(soup):
-    try:
-        image = soup.find("img", attrs={'id':'landingImage'})
-        imageURL = image.get('src')
-    except: 
-        imageURL = ""
-    return imageURL
-        
-
 def get_amz_product_data(url):
-    webpage = requests.get(url, headers=HEADERS)
-    soup = BeautifulSoup(webpage.text, "html.parser")
-    result = {"title": get_title(soup), "price": get_price(soup), "rating":get_rating(soup), "imageURL": get_image_url(soup)," productURL":url}
-    return result
+    r = requests.get(url, headers=HEADERS)
+    soup = BeautifulSoup(r.content, 'html.parser')
+    # Extract the product name
+    product_name = soup.find('span', {'id': 'productTitle'}).text.strip()
+
+    # Extract the product price
+    product_price = soup.find('span', {'class': 'a-price-whole'}).text.strip()
+
+    # Extract the product rating
+    product_rating = soup.find('span', {'class': 'a-icon-alt'}).text.strip().split()[0]
+
+    # Extract the product image URL
+    product_image_url = soup.find('img', {'id': 'landingImage'})['data-old-hires']
+
+    return {"product_name": product_name, "product_price": product_price, "product_rating": product_rating, "product_image_url":product_image_url}
 
 
-def extract_reviews(url, pages=1):
+
+def get_amz_reviews(url, pages=1):
     multiPageData = get_multipage_reviews(url,pages)
-    data_str = ""
     reviews = []
     for page in multiPageData:
-        for item in page.find_all("span", class_="review-text"):
-            data_str = data_str + item.get_text()
-            reviews.append(data_str)
-            data_str = ""
+        review_containers = page.find_all('div', {'data-hook': 'review'})
+        for container in review_containers:
+            review_text = container.find('span', {'data-hook': 'review-body'}).text.strip()
+            review_text = review_text.replace('\n', '').replace('\t', '')
+            verified_purchase = 'Verified Purchase' in container.find('span', {'class': 'a-size-mini a-color-state a-text-bold'}).text
+            review_item = {
+                 "review_text": review_text,
+                 "verified_purchase": verified_purchase or False
+            }
+            reviews.append(review_text)            
     return reviews
+

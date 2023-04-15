@@ -30,7 +30,7 @@ def review_scrapper(soup):
       reviews.append(review)
   return reviews
 
-def extract_flp_reviews(url, pages=1):
+def get_flp_reviews(url, pages=1):
   multiPageData = get_multipage_reviews(url,pages)
   reviews = []
   for page in multiPageData:
@@ -40,12 +40,13 @@ def extract_flp_reviews(url, pages=1):
 def get_flp_product_data(url):
   response = requests.get(url, headers=HEADERS)
   soup = BeautifulSoup(response.text, 'html.parser')
-  rating=soup.find('div', attrs={'class':'_3LWZlK'})
-  price=soup.find('div', attrs={'class':'_30jeq3 _16Jk6d'})
-  imageURL = soup.find('img', attrs={'class': "_396cs4 _2amPTt _3qGmMb"})
-  title = soup.find('span', attrs={'class': "B_NuCI"})
-  print(rating.text,price.text)
-  return {"rating": rating.text, "price": price.text, "productURL": url, "imageURL": imageURL.get('src'), "title": title}
-    
+
+  product_rating=soup.find('div', attrs={'class':'_3LWZlK'}).text
+  product_price=soup.find('div', attrs={'class':'_30jeq3 _16Jk6d'}).text
+  product_image_url = soup.find('img', attrs={'class': "_396cs4 _2amPTt _3qGmMb"})['src']
+  product_name = soup.find('span', attrs={'class': "B_NuCI"}).text
+
+  return {"product_name": product_name, "product_price": product_price, "product_rating": product_rating, "product_image_url":product_image_url}
+
   
 

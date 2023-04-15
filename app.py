@@ -1,76 +1,189 @@
-from scrapers.sc_amzn import get_amz_product_data, extract_reviews
-from scrapers.sc_flpkrt import get_flp_product_data, extract_flp_reviews
-from flask import Flask, request, render_template, jsonify
-from happytransformer import HappyTextClassification
-from keybert import KeyBERT
-from transformers import pipeline
+import urllib.parse
 
-happy_tc = HappyTextClassification(model_type="BERT", model_name="nlptown/bert-base-multilingual-uncased-sentiment",num_labels=5)
-kw_model = KeyBERT()
-summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-12-6")
-  
-def count_words(text):
-  text = text.split(" ")
-  return len(text)
+import requests
+from bs4 import BeautifulSoup
+from flask import Flask, request
+from flask_cors import CORS
 
-def summarize_text(text: str, max_len: int) -> str:
-  try:
-      summary = summarizer(text, max_length=max_len, min_length=10, do_sample=False)
-      return summary[0]["summary_text"]
-  except:
-      print("Sequence length too large for model, cutting text in half and calling again")
-      return summarize_text(text=text[:(len(text) // 2)], max_len=max_len//2) + summarize_text(text=text[(len(text) // 2):], max_len=max_len//2)
+from modules.keywordExtractor import KeywordExtractor
+from modules.sentimentAnalyzer import SentimentAnalyzer
+from modules.summarizer import ReviewSummarizer
+from scrapers.sc_amzn import get_amz_product_data, get_amz_reviews
+from scrapers.sc_flpkrt import get_flp_product_data, get_flp_reviews
 
-def get_analysis(url_amz=None, url_flp=None):
-  if not url_amz and not url_flp:
-    return "Nothing to analyze"
+HEADERS = ({'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
+            AppleWebKit/537.36 (KHTML, like Gecko) \
+            Chrome/90.0.4430.212 Safari/537.36',
+            'Accept-Language': 'en-US, en;q=0.5'})
 
-  reviews = []
-  if url_amz and url_flp:
-    reviews = extract_reviews(url_amz,1)
-    reviews.extend(extract_flp_reviews(url_flp, 1))
-  elif url_amz:
-    reviews = extract_reviews(url_amz,1)
-  elif url_flp:
-    reviews = extract_flp_reviews(url_flp, 1)
-  
-  score = []
-  keywords = []
-  summaries = []
-  for r in reviews:
-    score.append(happy_tc.classify_text(r).label)
-    keywords.append(kw_model.extract_keywords(r,keyphrase_ngram_range=(1,3))[0][0])
-  summaries.append(summarize_text(''.join(reviews),200))
+def get_summary(reviews):
+    return ReviewSummarizer(reviews, max_length=150, min_length=100)
 
-  return {"keywords":keywords, "scores": score, "summaries": summaries}
+def get_sentiment(reviews):
+    return SentimentAnalyzer(reviews)
 
-def get_product_data(url_amz=None, url_flp=None):
-  productData = {}
-  if url_amz and url_flp:
-    productData["amazon"] = get_amz_product_data(url_amz)
-    productData["flipkart"] = get_flp_product_data(url_flp)
-  elif url_amz:
-    productData["amazon"] = get_amz_product_data(url_amz)
-  return productData
+def get_keywords(reviews):
+    return KeywordExtractor(reviews)
 
-app = Flask(__name__, template_folder="templates/build", static_folder="templates/build/static")
+def product_finder(url_amz=None, url_flp=None):
+    if not url_amz and not url_flp:
+        return
+    elif url_amz:
+        # Get product name from url
+        product_data = get_amz_product_data(url_amz)
+        product_name = urllib.parse.quote(product_data["product_name"])
+        # Search query url for the product in Flipkart
+        query_url = f"https://www.flipkart.com/search?q={product_name}&otracker=search&otracker1=search&marketplace=FLIPKART&as-show=on&as=off"
 
-@app.route('/')
-def home():
-  return render_template('index.html')
+        response = requests.get(query_url)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        container = soup.find_all('div', {'class': '_1AtVbE col-12-12'})
+
+        print(query_url)
+
+        # Find the first search result and scrape the url
+        if len(container) > 0:            
+            for result in container:
+                product = result.find('div', {'class':'_4ddWXP'})
+                if product is not None:
+                    return 'https://www.flipkart.com' + product.find('a')['href'] 
+        else:
+            return None
+    elif url_flp:
+        # Get product name from url
+        product_data = get_flp_product_data(url_flp)
+        product_name = urllib.parse.quote(product_data["product_name"])
+        # Search query url for the product in Amazon
+        query_url = f"https://www.amazon.in/s?k={product_name}"
+
+        response = requests.get(query_url, headers=HEADERS)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        results = soup.find_all('div', {'class': ['s-result-item'], 'data-component-type': 's-search-result'})
+        
+        # Filter out sponsored results
+        for r in results:
+            if 'AdHolder' not in r.get('class'):
+                return 'https://www.amazon.in' + (r.find('a')['href'])
+        return None
+      
+app = Flask(__name__)
+cors = CORS(app)
+
+cors = CORS(app, resources={r"/*": {"origins": "*"}})
 
 
 @app.route('/analyze', methods=['GET'])
 def analyze():
+    print("received request")
     args = request.args
-    result = {"productData": '', "analysis": ''}
-    if args.get("url_amz") and args.get("url_flp"):
-      result["analysis"] = get_analysis(args.get("url_amz"), args.get("url_flp"))
-      result["productData"] = get_product_data(args.get("url_amz"), args.get("url_flp"))
-    elif args.get("url_amz"):
-      result["analysis"] = get_analysis(args.get("url_amz"), None)      
-      result["productData"] = get_product_data(args.get("url_amz"), None)
-    elif args.get("url_flp"):
-      result["analysis"] = get_analysis(None, args.get("url_flp"))      
-      result["productData"] = get_product_data(None, args.get("url_flp"))
-    return jsonify(result)
+    url_amz = args.get('url_amz')
+    url_flp = args.get('url_flp')
+    result = {
+        "amazon" : {
+            "product_data":None,
+            "analysis": {
+                "sentiment_score": 0,
+                "keywords": [],
+                "summary": ""
+            }
+        },
+        "flipkart": {
+            "product_data":None,
+            "analysis": {
+                "sentiment_score": 0,
+                "keywords": [],
+                "summary": ""
+            }
+        
+        }
+    }
+
+    if url_amz and url_flp:
+      result["amazon"]["product_data"] = get_amz_product_data(url_amz)
+      result["flipkart"]["product_data"] = get_flp_product_data(url_flp)
+
+      amz_reviews = get_amz_reviews(url_amz)
+      flp_reviews = get_flp_reviews(url_flp)
+
+      result["amazon"]["analysis"] = {
+          "sentiment_score": get_sentiment(amz_reviews),
+          "keywords": get_keywords(amz_reviews),
+          "summary": get_summary(amz_reviews),
+      }
+
+      result["flipkart"]["analysis"] = {
+          "sentiment_score": get_sentiment(flp_reviews),
+          "keywords": get_keywords(flp_reviews),
+          "summary": get_summary(flp_reviews),
+      }
+    elif url_amz:
+        url_flp = product_finder(url_amz=url_amz, url_flp=None)
+
+        print(url_flp)
+        
+        if (url_flp is not None):
+            result["amazon"]["product_data"] = get_amz_product_data(url_amz)
+            result["flipkart"]["product_data"] = get_flp_product_data(url_flp)
+
+            amz_reviews = get_amz_reviews(url_amz)
+            flp_reviews = get_flp_reviews(url_flp)
+
+            result["amazon"]["analysis"] = {
+                "sentiment_score": get_sentiment(amz_reviews),
+                "keywords": get_keywords(amz_reviews),
+                "summary": get_summary(amz_reviews),
+            }
+
+            result["flipkart"]["analysis"] = {
+                "sentiment_score": get_sentiment(flp_reviews),
+                "keywords": get_keywords(flp_reviews),
+                "summary": get_summary(flp_reviews),
+            }
+        else:
+            result["amazon"]["product_data"] = get_amz_product_data(url_amz)
+
+            amz_reviews = get_amz_reviews(url_amz)
+
+            result["amazon"]["analysis"] = {
+                "sentiment_score": get_sentiment(amz_reviews),
+                "keywords": get_keywords(amz_reviews),
+                "summary": get_summary(amz_reviews),
+            }
+    elif url_flp:            
+        url_amz = product_finder(url_amz=None, url_flp=url_flp)
+        
+        if (url_amz is not None):
+            result["amazon"]["product_data"] = get_amz_product_data(url_amz)
+            result["flipkart"]["product_data"] = get_flp_product_data(url_flp)
+
+            amz_reviews = get_amz_reviews(url_amz)
+            flp_reviews = get_flp_reviews(url_flp)
+
+            result["amazon"]["analysis"] = {
+                "sentiment_score": get_sentiment(amz_reviews),
+                "keywords": get_keywords(amz_reviews),
+                "summary": get_summary(amz_reviews),
+            }
+
+            result["flipkart"]["analysis"] = {
+                "sentiment_score": get_sentiment(flp_reviews),
+                "keywords": get_keywords(flp_reviews),
+                "summary": get_summary(flp_reviews),
+            }
+        else:            
+            result["flipkart"]["product_data"] = get_flp_product_data(url_flp)
+
+            flp_reviews = get_flp_reviews(url_flp)
+            
+
+            result["flipkart"]["analysis"] = {
+                "sentiment_score": get_sentiment(flp_reviews),
+                "keywords": get_keywords(flp_reviews),
+                "summary": get_summary(flp_reviews),
+            }
+    return result
+
+
+            
+
