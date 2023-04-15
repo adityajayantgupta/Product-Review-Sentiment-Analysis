@@ -1,3 +1,5 @@
+import concurrent.futures
+import multiprocessing as mp
 import urllib.parse
 
 import requests
@@ -73,117 +75,67 @@ cors = CORS(app)
 cors = CORS(app, resources={r"/*": {"origins": "*"}})
 
 
+def generate_analysis(url, reviews_func):
+    reviews = reviews_func(url)
+    return {
+        "sentiment_score": get_sentiment(reviews),
+        "keywords": get_keywords(reviews),
+        "summary": get_summary(reviews)
+    }
+
+def generate_result(site, url, data_function, reviews_func):
+    result = {
+        site: {
+            "product_data": data_function(url),
+            "analysis": generate_analysis(url, reviews_func) 
+        },
+    } 
+    return result     
+
+def generate_combined_result(url_amz, url_flp):
+    result = {
+        "amazon": {
+            "product_data": get_amz_product_data(url_amz),
+            "analysis": {}
+        },
+        "flipkart": {
+            "product_data": get_flp_product_data(url_flp),
+            "analysis": {}
+        }
+    }
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = {
+            executor.submit(generate_analysis, url_amz, get_amz_reviews): result["amazon"]["analysis"],
+            executor.submit(generate_analysis, url_flp, get_flp_reviews): result["flipkart"]["analysis"]
+        }
+
+        for future, site_analysis in futures.items():
+            site_analysis.update(future.result())
+
+    return result
+
 @app.route('/analyze', methods=['GET'])
 def analyze():
     print("received request")
     args = request.args
     url_amz = args.get('url_amz')
     url_flp = args.get('url_flp')
-    result = {
-        "amazon" : {
-            "product_data":None,
-            "analysis": {
-                "sentiment_score": 0,
-                "keywords": [],
-                "summary": ""
-            }
-        },
-        "flipkart": {
-            "product_data":None,
-            "analysis": {
-                "sentiment_score": 0,
-                "keywords": [],
-                "summary": ""
-            }
-        
-        }
-    }
 
     if url_amz and url_flp:
-      result["amazon"]["product_data"] = get_amz_product_data(url_amz)
-      result["flipkart"]["product_data"] = get_flp_product_data(url_flp)
-
-      amz_reviews = get_amz_reviews(url_amz)
-      flp_reviews = get_flp_reviews(url_flp)
-
-      result["amazon"]["analysis"] = {
-          "sentiment_score": get_sentiment(amz_reviews),
-          "keywords": get_keywords(amz_reviews),
-          "summary": get_summary(amz_reviews),
-      }
-
-      result["flipkart"]["analysis"] = {
-          "sentiment_score": get_sentiment(flp_reviews),
-          "keywords": get_keywords(flp_reviews),
-          "summary": get_summary(flp_reviews),
-      }
+      return generate_combined_result(url_amz, url_flp)
     elif url_amz:
         url_flp = product_finder(url_amz=url_amz, url_flp=None)
-
-        print(url_flp)
         
         if (url_flp is not None):
-            result["amazon"]["product_data"] = get_amz_product_data(url_amz)
-            result["flipkart"]["product_data"] = get_flp_product_data(url_flp)
-
-            amz_reviews = get_amz_reviews(url_amz)
-            flp_reviews = get_flp_reviews(url_flp)
-
-            result["amazon"]["analysis"] = {
-                "sentiment_score": get_sentiment(amz_reviews),
-                "keywords": get_keywords(amz_reviews),
-                "summary": get_summary(amz_reviews),
-            }
-
-            result["flipkart"]["analysis"] = {
-                "sentiment_score": get_sentiment(flp_reviews),
-                "keywords": get_keywords(flp_reviews),
-                "summary": get_summary(flp_reviews),
-            }
+            return generate_combined_result(url_amz, url_flp)
         else:
-            result["amazon"]["product_data"] = get_amz_product_data(url_amz)
-
-            amz_reviews = get_amz_reviews(url_amz)
-
-            result["amazon"]["analysis"] = {
-                "sentiment_score": get_sentiment(amz_reviews),
-                "keywords": get_keywords(amz_reviews),
-                "summary": get_summary(amz_reviews),
-            }
+            return generate_result("amazon", url_amz, get_amz_product_data, get_amz_reviews)
+            
     elif url_flp:            
         url_amz = product_finder(url_amz=None, url_flp=url_flp)
         
         if (url_amz is not None):
-            result["amazon"]["product_data"] = get_amz_product_data(url_amz)
-            result["flipkart"]["product_data"] = get_flp_product_data(url_flp)
-
-            amz_reviews = get_amz_reviews(url_amz)
-            flp_reviews = get_flp_reviews(url_flp)
-
-            result["amazon"]["analysis"] = {
-                "sentiment_score": get_sentiment(amz_reviews),
-                "keywords": get_keywords(amz_reviews),
-                "summary": get_summary(amz_reviews),
-            }
-
-            result["flipkart"]["analysis"] = {
-                "sentiment_score": get_sentiment(flp_reviews),
-                "keywords": get_keywords(flp_reviews),
-                "summary": get_summary(flp_reviews),
-            }
-        else:            
-            result["flipkart"]["product_data"] = get_flp_product_data(url_flp)
-
-            flp_reviews = get_flp_reviews(url_flp)
-            
-
-            result["flipkart"]["analysis"] = {
-                "sentiment_score": get_sentiment(flp_reviews),
-                "keywords": get_keywords(flp_reviews),
-                "summary": get_summary(flp_reviews),
-            }
-    return result
-
-
-            
-
+            return generate_combined_result(url_amz, url_flp)
+        else:    
+            return generate_result("flipkart", url_flp, get_flp_product_data, get_flp_reviews)  
