@@ -10,6 +10,7 @@ from flask_cors import CORS
 from modules.keywordExtractor import KeywordExtractor
 from modules.sentimentAnalyzer import SentimentAnalyzer
 from modules.summarizer import ReviewSummarizer
+from modules.reviewSentimentTagger import ReviewSentimentTagger
 from scrapers.sc_amzn import get_amz_product_data, get_amz_reviews
 from scrapers.sc_flpkrt import get_flp_product_data, get_flp_reviews
 
@@ -21,6 +22,9 @@ HEADERS = ({'User-Agent':
 
 def get_summary(reviews):
     return ReviewSummarizer(reviews, max_length=150, min_length=100)
+
+def get_tagged_summary(reviews):
+    return ReviewSentimentTagger(reviews)
 
 def get_sentiment(reviews):
     return SentimentAnalyzer(reviews)
@@ -77,13 +81,18 @@ cors = CORS(app, resources={r"/*": {"origins": "*"}})
 
 def generate_analysis(url, reviews_func):
     reviews = reviews_func(url)
+    sentiment = get_sentiment(reviews)
+    keywords = get_keywords(reviews)
+    summary = get_summary(reviews)
+    tagged_summary = get_tagged_summary(summary)
     return {
-        "sentiment_score": get_sentiment(reviews),
-        "keywords": get_keywords(reviews),
-        "summary": get_summary(reviews)
+        "sentiment_score": sentiment ,
+        "keywords": keywords,
+        "summary": summary,
+        "tagged_summary": tagged_summary,
     }
 
-def generate_result(site, url, data_function, reviews_func):
+def generate_single_result(site, url, data_function, reviews_func):
     result = {
         site: {
             "product_data": data_function(url),
@@ -92,17 +101,22 @@ def generate_result(site, url, data_function, reviews_func):
     } 
     return result     
 
-def generate_combined_result(url_amz, url_flp):
+def generate_combined_result(url_amz, url_flp, autoMatchPlatform = None):
     result = {
         "amazon": {
             "product_data": get_amz_product_data(url_amz),
+            "autoMatch": False,
             "analysis": {}
         },
         "flipkart": {
             "product_data": get_flp_product_data(url_flp),
+            "autoMatch": False,
             "analysis": {}
         }
     }
+
+    if autoMatchPlatform is not None:
+        result[autoMatchPlatform]["autoMatch"] = True
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = {
@@ -128,14 +142,14 @@ def analyze():
         url_flp = product_finder(url_amz=url_amz, url_flp=None)
         
         if (url_flp is not None):
-            return generate_combined_result(url_amz, url_flp)
+            return generate_combined_result(url_amz, url_flp, autoMatchPlatform = "flipkart")
         else:
-            return generate_result("amazon", url_amz, get_amz_product_data, get_amz_reviews)
+            return generate_single_result("amazon", url_amz, get_amz_product_data, get_amz_reviews)
             
-    elif url_flp:            
+    elif url_flp:
         url_amz = product_finder(url_amz=None, url_flp=url_flp)
         
         if (url_amz is not None):
-            return generate_combined_result(url_amz, url_flp)
+            return generate_combined_result(url_amz, url_flp, autoMatchPlatform = "amazon")
         else:    
-            return generate_result("flipkart", url_flp, get_flp_product_data, get_flp_reviews)  
+            return generate_single_result("flipkart", url_flp, get_flp_product_data, get_flp_reviews)  

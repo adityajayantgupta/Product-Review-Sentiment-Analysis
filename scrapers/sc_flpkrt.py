@@ -46,7 +46,7 @@ def get_flp_product_data(url):
   product_image_url = soup.find('img', attrs={'class': "_396cs4 _2amPTt _3qGmMb"})['src']
   product_name = soup.find('span', attrs={'class': "B_NuCI"}).text
 
-  return {"product_name": product_name, "product_price": product_price, "product_rating": product_rating, "product_image_url":product_image_url}
+  return {"product_name": product_name, "product_price": product_price, "product_rating": product_rating, "product_image_url":product_image_url, "product_url": url}
 
   
 

@@ -20,5 +20,5 @@ def SentimentAnalyzer(reviews):
             result = sentiment_pipeline(r)
             label = result[0]['label']
             score = label.split(" ")[0]
-        scores.append(score)
-    return scores
+        scores.append(float(score))
+    return sum(scores) / len(scores)

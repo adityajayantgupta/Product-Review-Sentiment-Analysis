@@ -38,7 +38,7 @@ def get_amz_product_data(url):
     # Extract the product image URL
     product_image_url = soup.find('img', {'id': 'landingImage'})['data-old-hires']
 
-    return {"product_name": product_name, "product_price": product_price, "product_rating": product_rating, "product_image_url":product_image_url}
+    return {"product_name": product_name, "product_price": product_price, "product_rating": product_rating, "product_image_url":product_image_url, "product_url": url}
 
 
 
