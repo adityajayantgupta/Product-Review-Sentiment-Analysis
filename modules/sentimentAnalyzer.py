@@ -21,4 +21,7 @@ def SentimentAnalyzer(reviews):
             label = result[0]['label']
             score = label.split(" ")[0]
         scores.append(float(score))
-    return sum(scores) / len(scores)
+    if len(scores) > 0:
+        return sum(scores) / len(scores)
+    else:
+        return 0.0
