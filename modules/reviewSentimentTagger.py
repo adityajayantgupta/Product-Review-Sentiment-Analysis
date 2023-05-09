@@ -12,6 +12,9 @@ def ReviewSentimentTagger(review):
     sentences = review.split('.')
     tagged_sentences = []
     for sentence in sentences:
+        sentence = sentence.strip()
+        if not sentence:
+            continue
         result = sentiment_pipeline(sentence)
         label = result[0]['label']
         score = int(label.split(" ")[0])

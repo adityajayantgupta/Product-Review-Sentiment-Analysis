@@ -146,9 +146,14 @@ def generate_combined_result(req_one, req_two, autoMatchPlatform = None):
     if autoMatchPlatform is not None:
         result[autoMatchPlatform]["autoMatch"] = True
 
-    result[req_one["platform"]]["analysis"] = check_cached_product(result[req_one["platform"]]["product_data"]["product_name"])["analysis"]
-    result[req_two["platform"]]["analysis"] = check_cached_product(result[req_two["platform"]]["product_data"]["product_name"])["analysis"]
+    req_cache_query_one = check_cached_product(result[req_one["platform"]]["product_data"]["product_name"])
+    req_cache_query_two = check_cached_product(result[req_two["platform"]]["product_data"]["product_name"])
 
+    if req_cache_query_one:
+        result[req_one["platform"]]["analysis"] = req_cache_query_one["analysis"]
+    if req_cache_query_two:
+        result[req_two["platform"]]["analysis"] = req_cache_query_two["analysis"]
+    
 
     if not result[req_one["platform"]]["analysis"] and not result[req_two["platform"]]["analysis"]:
         with concurrent.futures.ThreadPoolExecutor() as executor:

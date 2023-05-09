@@ -1,8 +1,7 @@
-import sqlite3
-from sqlite3 import Error
 import json
+import sqlite3
 import threading
-
+from sqlite3 import Error
 
 # Create a thread-local storage for the database connection
 local_storage = threading.local()
@@ -38,6 +37,12 @@ def store_analyzed_product(result, platform):
 def check_cached_product(product_name):
   conn = get_db_connection('cached_products.db')
   c = conn.cursor()
+  c.execute('''CREATE TABLE IF NOT EXISTS analyzed_products
+            (id INTEGER PRIMARY KEY AUTOINCREMENT,
+              product_name TEXT UNIQUE,              
+              platform TEXT,
+              result TEXT)''')
+  conn.commit()
   c.execute("SELECT result FROM analyzed_products WHERE product_name=?", (product_name,))
   result = c.fetchone()
   close_connection()
