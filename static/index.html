@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Product Analysis</title>
+</head>
+
+<body>
+  <h1>Product Analysis</h1>
+  <form>
+    <label for="url">Enter product URL:</label>
+    <input type="text" id="url" name="url" required>
+    <button type="button" onclick="analyze()">Analyze</button>
+  </form>
+  <div id="result"></div>
+  <script>
+    function analyze() {
+      var url = document.getElementById("url").value;
+      var xhr = new XMLHttpRequest();
+      xhr.open("GET", "/analyze?url_amz=" + encodeURIComponent(url));
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          var response = JSON.parse(xhr.responseText);
+          var analysis = response.analysis;
+          var summary = analysis.summaries.combined[0];
+          var keywords = analysis.keywords.combined[0];
+          var score = analysis.scores.combined[0];
+          var result = document.getElementById("result");
+          result.innerHTML = "<p>Summary: " + summary + "</p>" +
+            "<p>Keywords: " + keywords + "</p>" +
+            "<p>Sentiment score: " + score + "</p>";
+        } else {
+          alert("Error: " + xhr.statusText);
+        }
+      };
+      xhr.onerror = function () {
+        alert("Error: " + xhr.statusText);
+      };
+      xhr.send();
+    }
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Harmattan:wght@400;700&display=swap");
+
+body {
+  font-family: "Harmattan", sans-serif;
+}
+
+.tag-automatch:hover .tooltip {
+  opacity: 1;
+  transition: 300ms;
+}
+
+.tooltip {
+  opacity: 0;
+  position: absolute;
+  top: -12rem;
+  right: 0;
+  width: 200%;
+  padding: 20px;
+  background: white;
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.05);
+  border-radius: 10%;
+  transition: 300ms;
+}
+.lds-dual-ring {
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lds-dual-ring:after {
+  content: " ";
+  display: block;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  border-color: #fff transparent #fff transparent;
+  animation: lds-dual-ring 1.2s linear infinite;
+}
+@keyframes lds-dual-ring {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+span[data-highlight] {
+  display: inline-block;
+  border-radius: 5px;
+  padding: 5px;
+}
+
+span[data-highlight="red"] {
+  background-color: #ffaaa7;
+}
+span[data-highlight="orange"] {
+  background-color: #ffd3b4;
+}
+span[data-highlight="yellow"] {
+  background-color: #fdf7c3;
+}
+span[data-highlight="lightgreen"] {
+  background-color: #d5ecc2;
+}
+span[data-highlight="green"] {
+  background-color: #98ddca;
+}
