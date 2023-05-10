@@ -30,7 +30,7 @@ def review_scrapper(soup):
       reviews.append(review)
   return reviews
 
-def get_flp_reviews(url, pages=1):
+def get_flp_reviews(platform, url, pages=1):
   multiPageData = get_multipage_reviews(url,pages)
   reviews = []
   for page in multiPageData:

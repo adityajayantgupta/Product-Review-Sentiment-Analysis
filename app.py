@@ -49,9 +49,9 @@ def get_product_data(platform, url):
 
 def get_reviews(platform, url):
     if platform == "amazon":
-        return get_amz_reviews(url)
+        return get_amz_reviews(platform, url=url)
     elif platform == "flipkart":
-        return get_flp_reviews(url)
+        return get_flp_reviews(platform, url=url)
     else:
         return None
 
@@ -64,17 +64,17 @@ def product_finder(url_amz=None, url_flp=None):
         product_name = urllib.parse.quote(product_data["product_name"])
         # Search query url for the product in Flipkart
         query_url = f"https://www.flipkart.com/search?q={product_name}&otracker=search&otracker1=search&marketplace=FLIPKART&as-show=on&as=off"
-
+        
         response = requests.get(query_url)
         soup = BeautifulSoup(response.content, 'html.parser')
         container = soup.find_all('div', {'class': '_1AtVbE col-12-12'})
 
         # Find the first search result and scrape the url
         if len(container) > 0:            
-            for result in container:
-                product = result.find('div', {'class':'_4ddWXP'})
-                if product is not None:
-                    return 'https://www.flipkart.com' + product.find('a')['href'] 
+            for result in container:  
+                link = result.find('a', {'class': '_1fQZEK'})       
+                if link is not None:
+                    return 'https://www.flipkart.com' + link['href'] 
         else:
             return None
     elif url_flp:
@@ -123,7 +123,11 @@ def generate_single_result(site, url, data_function, reviews_func):
         },
     }
 
-    result[site]["analysis"] = check_cached_product(result[site]["product_data"]["product_name"])["analysis"] or generate_analysis(url, reviews_func)
+    cache_query_result = check_cached_product(result[site]["product_data"]["product_name"])
+    if cache_query_result:
+        result[site]["analysis"] = check_cached_product(result[site]["product_data"]["product_name"])["analysis"]
+    else:
+        result[site]["analysis"] = generate_analysis(site, url, reviews_func)
                         
     store_results(result, site)
     return result
@@ -182,7 +186,7 @@ def handle_single_platform_request (url, platform):
         if (url_flp is not None):
             return generate_combined_result({"url": url, "platform": "amazon"}, {"url": url_flp, "platform": "flipkart"}, autoMatchPlatform = "flipkart")
         else:
-            return generate_single_result("amazon", url_amz, get_amz_product_data, get_amz_reviews)
+            return generate_single_result("amazon", url, get_amz_product_data, get_amz_reviews)
             
     elif platform == "flipkart":
         url_amz = product_finder(url_amz=None, url_flp=url)
@@ -190,7 +194,7 @@ def handle_single_platform_request (url, platform):
         if (url_amz is not None):
             return generate_combined_result({"url": url_amz, "platform": "amazon"}, {"url": url, "platform": "flipkart"}, autoMatchPlatform = "amazon")
         else:    
-            return generate_single_result("flipkart", url_flp, get_flp_product_data, get_flp_reviews)  
+            return generate_single_result("flipkart", url, get_flp_product_data, get_flp_reviews)  
 
 
 
