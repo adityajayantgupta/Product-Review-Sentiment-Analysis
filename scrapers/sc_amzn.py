@@ -9,7 +9,7 @@ HEADERS = ({'User-Agent':
             Chrome/90.0.4430.212 Safari/537.36',
             'Accept-Language': 'en-US, en;q=0.5'})
   
-def get_multipage_reviews(url, pages=1):  
+def get_multipage_reviews(url, pages=1):
     url = url.split("/")
     url = list(map(lambda x: x.replace('dp', 'product-reviews'), url))
     url = "/".join(url)
@@ -42,7 +42,7 @@ def get_amz_product_data(url):
 
 
 
-def get_amz_reviews(url, pages=1):
+def get_amz_reviews(platform, url, pages=1):
     multiPageData = get_multipage_reviews(url,pages)
     reviews = []
     for page in multiPageData:
